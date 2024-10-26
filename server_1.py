@@ -43,7 +43,7 @@ def send_file(server_ip, server_port, enable_fast_recovery):
     
     print(WINDOW_SIZE)
     WINDOW_SIZE = 10
-    
+    is_end = False
     
 
     with open(FILE_PATH, 'rb') as file:
@@ -61,18 +61,9 @@ def send_file(server_ip, server_port, enable_fast_recovery):
             while seq_num < window_base + WINDOW_SIZE:
                 chunk = file.read(MSS)
                 if not chunk:
-                    if not end_of_file_send:
-                        end_of_file_send = True
-                        data = b"END_OF_FILE_HERE"
-                        packet = {
-                        "seq_num": seq_num,
-                        "data": data.decode("latin1"),  # Use latin1 to handle binary data in JSON
-                        "len_data": len(data)
-                        
-                        }   
-                        # server_socket.sendto(packet, client_address)
-                        
-                    # End of file
+                    
+                    
+                    is_end = True
                     break
 
                 # Create and send the packet
@@ -96,6 +87,10 @@ def send_file(server_ip, server_port, enable_fast_recovery):
 
             # Wait for ACKs and handle retransmissions
             try:
+                # print(is_end,last_ack_received,seq_num)
+                if is_end and last_ack_received>=seq_num:
+                    print("File transfer complete")
+                    break
                 server_socket.settimeout(TIMEOUT)
                 ack_packet, _ = server_socket.recvfrom(1024)
                 ack_seq_num = int(ack_packet.decode())
@@ -143,6 +138,39 @@ def send_file(server_ip, server_port, enable_fast_recovery):
             if not chunk and len(unacked_packets) == 0:
                 print("File transfer complete")
                 break
+
+    data = b"END_OF_FILE_HERE"
+    packet = {
+    "seq_num": seq_num,
+    "data": data.hex(),  # Use latin1 to handle binary data in JSON
+    "len_data": len(data)
+    }   
+    packet = json.dumps(packet).encode("utf-8")
+    timeout = 5
+    count = 5
+    iterator = 0
+    while True:
+        
+        server_socket.sendto(packet, client_address)
+        try:
+            server_socket.settimeout(timeout)
+            ack_packet, _ = server_socket.recvfrom(1024)
+            server_socket.close()
+            break
+        except socket.timeout:
+            if iterator>count:
+                server_socket.close()
+            else:
+                itertor+=1
+                continue
+        
+    # server_socket.sendto(packet, client_address)
+    
+                    # End of file
+    
+    
+    
+    
 
 def create_packet(seq_num, data):
     """
