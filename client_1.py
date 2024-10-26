@@ -38,6 +38,9 @@ def receive_file(server_ip, server_port):
             data = bytes.fromhex(packet["data"])
             length = packet["len_data"]
             state = True
+            if data ==b"END_OF_FILE_HERE":
+                client_socket.sendto(b"END", server_address)
+                break
             if not is_rtt_done:
                 rtt_data = rtt_data.ljust(length, b'\x00')
                 if rtt_data==data:
@@ -78,7 +81,7 @@ def receive_file(server_ip, server_port):
         # except socket.timeout:
         #     print("Timeout occurred, no more packets received.")
         #     break
-
+    client_socket.close()
     print("File transfer complete.")
 
 # Parse command-line arguments
